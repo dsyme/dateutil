@@ -44,6 +44,7 @@ tools:
 
 env:
   pypi-hosts: "pypi.python.org pypi.org files.pythonhosted.org"
+  TOXENV: py
 
 steps:
   - name: Checkout repository
