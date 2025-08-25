@@ -17,7 +17,7 @@ runs:
         pip install tox
     - name: Run updatezinfo.py (Unix)
       run: ./ci_tools/retry.sh python updatezinfo.py
-      if: runner.os != 'Windows'
+      shell: bash
         
     - name: Run tox
       run: python -m tox
