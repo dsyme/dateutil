@@ -7,7 +7,7 @@ runs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.13'
         
     - name: Install dependencies
       shell: bash
@@ -22,22 +22,14 @@ runs:
     - name: Run tox
       run: python -m tox
       shell: bash
-    - name: Generate coverage.xml
+    - name: Generate ./.tox/coverage.xml
       run: python -m tox -e coverage
       shell: bash
-        
-    - name: Generate detailed coverage report
-      shell: bash
-      run: |
-        python -m coverage report --show-missing > coverage-report.txt
-        python -m coverage html
         
     - name: Upload coverage artifacts
       uses: actions/upload-artifact@v4
       with:
         name: coverage-reports
         path: |
-          coverage.xml
-          htmlcov/
-          coverage-report.txt
+          ./.tox/coverage.xml
         retention-days: 30
