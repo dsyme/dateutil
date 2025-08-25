@@ -1415,6 +1415,9 @@ class rruleset(rrulebase):
 
 
 
+# Pre-compiled regex pattern for TZID extraction optimization
+_TZID_EXTRACTION_PATTERN = re.compile(r'TZID=(?P<name>[^:]+):')
+
 class _rrulestr(object):
     """ Parses a string representation of a recurrence rule or set of
     recurrence rules.
@@ -1628,7 +1631,7 @@ class _rrulestr(object):
 
         TZID_NAMES = dict(map(
             lambda x: (x.upper(), x),
-            re.findall('TZID=(?P<name>[^:]+):', s)
+            _TZID_EXTRACTION_PATTERN.findall(s)
         ))
         s = s.upper()
         if not s.strip():
