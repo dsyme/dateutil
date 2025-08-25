@@ -115,23 +115,34 @@ class relativedelta(object):
                     isinstance(dt2, datetime.date)):
                 raise TypeError("relativedelta only diffs datetime/date")
 
-            # We allow two dates, or two datetimes, so we coerce them to be
-            # of the same type
-            if (isinstance(dt1, datetime.datetime) !=
+            # We allow two dates, or two datetimes, or a datetime and a date
+            if (isinstance(dt1, datetime.datetime) and
                     isinstance(dt2, datetime.datetime)):
-                if not isinstance(dt1, datetime.datetime):
-                    dt1 = datetime.datetime.fromordinal(dt1.toordinal())
-                elif not isinstance(dt2, datetime.datetime):
-                    dt2 = datetime.datetime.fromordinal(dt2.toordinal())
+                self._has_time = 1
+            elif (isinstance(dt1, datetime.datetime) and
+                  isinstance(dt2, datetime.date)):
+                if dt1.hour or dt1.minute or dt1.second or dt1.microsecond:
+                    self._has_time = 1
+                else:
+                    self._has_time = 0
+            elif (isinstance(dt1, datetime.date) and
+                  isinstance(dt2, datetime.datetime)):
+                if dt2.hour or dt2.minute or dt2.second or dt2.microsecond:
+                    self._has_time = 1
+                else:
+                    self._has_time = 0
+            else:
+                self._has_time = 0
 
+            delta = dt1 - dt2
+            self.seconds = delta.seconds + delta.days * 86400
+            self.days = delta.days
+            self.microseconds = delta.microseconds
             self.years = 0
             self.months = 0
-            self.days = 0
             self.leapdays = 0
             self.hours = 0
             self.minutes = 0
-            self.seconds = 0
-            self.microseconds = 0
             self.year = None
             self.month = None
             self.day = None
@@ -140,43 +151,73 @@ class relativedelta(object):
             self.minute = None
             self.second = None
             self.microsecond = None
-            self._has_time = 0
 
-            # Get year / month delta between the two
-            months = (dt1.year - dt2.year) * 12 + (dt1.month - dt2.month)
-            self._set_months(months)
+            # Can't compare datetime to date, unless
+            # the time part of datetime is zero
+            if isinstance(dt1, datetime.datetime) and isinstance(dt2, datetime.date):
+                dt2 = datetime.datetime.fromordinal(dt2.toordinal())
+            elif isinstance(dt1, datetime.date) and isinstance(dt2, datetime.datetime):
+                dt1 = datetime.datetime.fromordinal(dt1.toordinal())
 
-            # Remove the year/month delta so the timedelta is just well-defined
-            # time units (seconds, days and microseconds)
-            dtm = self.__radd__(dt2)
-
-            # If we've overshot our target, make an adjustment
-            if dt1 < dt2:
-                compare = operator.gt
-                increment = 1
+            dtdiff = dt1 - dt2
+            if dtdiff.days:
+                self.days = dtdiff.days
+                self.seconds = dtdiff.seconds
+                self.microseconds = dtdiff.microseconds
             else:
-                compare = operator.lt
-                increment = -1
+                # Negative timedelta only has days information, so it's
+                # possible to have some false positives. That's why this
+                # is an 'if' and not an 'elif'.
+                if dtdiff.seconds:
+                    self.seconds = dtdiff.seconds
+                if dtdiff.microseconds:
+                    self.microseconds = dtdiff.microseconds
 
-            while compare(dt1, dtm):
-                months += increment
+            # If it's the same date, then ignore the months and years
+            if dt1.toordinal() == dt2.toordinal():
+                return
+
+            # Get year and month delta
+            months = (dt1.year - dt2.year) * 12 + dt1.month - dt2.month
+            self._set_months(months)
+            dtstart = dt2
+            dtend = dt1
+            if months < 0:
+                dtstart, dtend = dt1, dt2
+                months = -months
+            delta = relativedelta(years=months//12, months=months%12)
+            year = dtstart.year + delta.years
+            month = dtstart.month + delta.months
+            if month > 12:
+                year += 1
+                month -= 12
+            elif month < 1:
+                year -= 1
+                month += 12
+            dtstart = dtstart.replace(year=year, month=month)
+            if dtstart > dtend:
+                months -= 1
                 self._set_months(months)
-                dtm = self.__radd__(dt2)
-
-            # Get the timedelta between the "months-adjusted" date and dt1
-            delta = dt1 - dtm
-            self.seconds = delta.seconds + delta.days * 86400
-            self.microseconds = delta.microseconds
+            elif (dtstart == dtend and
+                  self.seconds == 0 and
+                  self.microseconds == 0):
+                # We were on the second right on the border, so decrement
+                # it, because the above comparison will fail in this case.
+                months -= 1
+                self._set_months(months)
         else:
-            # Check for non-integer values in integer-only quantities
-            if any(x is not None and x != int(x) for x in (years, months)):
-                raise ValueError("Non-integer years and months are "
-                                 "ambiguous and not currently supported.")
+            # Check for non-integer values in integer fields
+            for attr in ("years", "months"):
+                value = locals()[attr]
+                if not isinstance(value, integer_types):
+                    value_type = type(value).__name__
+                    msg = "Non-integer value passed for {attr}: {value_type}"
+                    raise TypeError(msg.format(attr=attr, value_type=value_type))
 
             # Relative information
-            self.years = int(years)
-            self.months = int(months)
-            self.days = days + weeks * 7
+            self.years = years
+            self.months = months
+            self.days = days + weeks*7
             self.leapdays = leapdays
             self.hours = hours
             self.minutes = minutes
@@ -187,79 +228,85 @@ class relativedelta(object):
             self.year = year
             self.month = month
             self.day = day
+            self.weekday = weekday
             self.hour = hour
             self.minute = minute
             self.second = second
             self.microsecond = microsecond
 
-            if any(x is not None and int(x) != x
-                   for x in (year, month, day, hour,
-                             minute, second, microsecond)):
+            if any(x is not None and int(x) != x for x in (year, month, day, hour,
+                                                           minute, second,
+                                                           microsecond)):
                 # For now we'll deprecate floats - later it'll be an error.
-                warn("Non-integer value passed as absolute information. " +
-                     "This is not a well-defined condition and will raise " +
-                     "errors in future versions.", DeprecationWarning)
+                warn("Non-integer absolute values will raise an error "
+                     "in future versions. "
+                     "Use integer values to avoid this warning.",
+                     DeprecationWarning)
 
             if isinstance(weekday, integer_types):
                 self.weekday = weekdays[weekday]
-            else:
-                self.weekday = weekday
 
-            yday = 0
+            # Year day information
             if nlyearday:
-                yday = nlyearday
-            elif yearday:
-                yday = yearday
+                if yearday:
+                    raise ValueError("Can't specify both yearday and nlyearday")
+                yearday = nlyearday
+
+            if yearday:
+                self.yearday = yearday
                 if yearday > 59:
                     self.leapdays = -1
-            if yday:
-                ydayidx = [31, 59, 90, 120, 151, 181, 212,
-                           243, 273, 304, 334, 366]
-                for idx, ydays in enumerate(ydayidx):
-                    if yday <= ydays:
-                        self.month = idx+1
-                        if idx == 0:
-                            self.day = yday
-                        else:
-                            self.day = yday-ydayidx[idx-1]
-                        break
+
+                # Convert to day/month/leapdays information
+                yday = yearday
+                if yday < 0:
+                    yday += 366
+
+                # Guess whether we're dealing with a leap year, then
+                # increment year and day number by 1 if this is a leap year and
+                # we're past Feb 28th
+                year = self.year or 1
+                if calendar.isleap(year):
+                    leapdays = 1
+                    leapadj = 1
                 else:
-                    raise ValueError("invalid year day (%d)" % yday)
+                    leapdays = 0
+                    leapadj = 0
+                if yday > (31 + 28 + leapadj):
+                    # Past Feb. 28th
+                    yday -= leapdays
+                elif yday > (31 + 28):
+                    # Past Feb. 28th, but before the potential Feb. 29th, so
+                    # we may be past the leap day, but we might not be. We
+                    # could be extremely ridiculous and check if the day number
+                    # the user gives corresponds to Feb 29th on a leap year,
+                    # but there's no point since Feb 29th is always the 60th
+                    # day of the year anyway.
+                    if calendar.isleap(year):
+                        yday -= leapdays
 
-        self._fix()
+                try:
+                    mmdd = calendar._monthlen[leapdays]
+                    for mm in range(1, 13):
+                        if yday <= mmdd[mm]:
+                            self.month = mm
+                            if mm == 1:
+                                self.day = yday
+                            else:
+                                self.day = yday-mmdd[mm-1]
+                            break
+                except:
+                    raise ValueError("invalid year day (%d)" % yearday)
+            else:
+                self.yearday = None
 
-    def _fix(self):
-        if abs(self.microseconds) > 999999:
-            s = _sign(self.microseconds)
-            div, mod = divmod(self.microseconds * s, 1000000)
-            self.microseconds = mod * s
-            self.seconds += div * s
-        if abs(self.seconds) > 59:
-            s = _sign(self.seconds)
-            div, mod = divmod(self.seconds * s, 60)
-            self.seconds = mod * s
-            self.minutes += div * s
-        if abs(self.minutes) > 59:
-            s = _sign(self.minutes)
-            div, mod = divmod(self.minutes * s, 60)
-            self.minutes = mod * s
-            self.hours += div * s
-        if abs(self.hours) > 23:
-            s = _sign(self.hours)
-            div, mod = divmod(self.hours * s, 24)
-            self.hours = mod * s
-            self.days += div * s
-        if abs(self.months) > 11:
-            s = _sign(self.months)
-            div, mod = divmod(self.months * s, 12)
-            self.months = mod * s
-            self.years += div * s
-        if (self.hours or self.minutes or self.seconds or self.microseconds
-                or self.hour is not None or self.minute is not None or
-                self.second is not None or self.microsecond is not None):
-            self._has_time = 1
-        else:
-            self._has_time = 0
+        self._has_time = any([hours, minutes, seconds, microseconds,
+                              hour is not None, minute is not None,
+                              second is not None, microsecond is not None])
+
+    def _set_months(self, months):
+        self.months = months % 12
+        self.years = months // 12
 
     @property
     def weeks(self):
@@ -267,19 +314,9 @@ class relativedelta(object):
 
     @weeks.setter
     def weeks(self, value):
-        self.days = self.days - (self.weeks * 7) + value * 7
+        self.days = value * 7
 
-    def _set_months(self, months):
-        self.months = months
-        if abs(self.months) > 11:
-            s = _sign(self.months)
-            div, mod = divmod(self.months * s, 12)
-            self.months = mod * s
-            self.years = div * s
-        else:
-            self.years = 0
-
-    def normalized(self):
+    def normalized(self, **kwargs):
         """
         Return a version of this object represented entirely using integer
         values for the relative attributes.
@@ -288,23 +325,38 @@ class relativedelta(object):
         relativedelta(days=+1, hours=+14)
 
         :return:
-            Returns a :class:`dateutil.relativedelta.relativedelta` object.
+            A :class:`dateutil.relativedelta.relativedelta` object.
         """
-        # Cascade remainders down (rounding each to roughly nearest microsecond)
-        days = int(self.days)
+        # Cascade the normalization
+        days = self.days
+        hours = self.hours
+        minutes = self.minutes
+        seconds = self.seconds
+        microseconds = self.microseconds
 
-        hours_f = round(self.hours + 24 * (self.days - days), 11)
-        hours = int(hours_f)
+        # Get rid of the fractional part from microseconds, seconds,
+        # minutes, hours and days
+        microseconds_f, microseconds = _sign(microseconds) * divmod(abs(microseconds), 1)
+        microseconds = int(microseconds)
 
-        minutes_f = round(self.minutes + 60 * (hours_f - hours), 10)
-        minutes = int(minutes_f)
+        seconds_f = seconds + microseconds_f / 1e6
+        seconds_f, seconds = _sign(seconds_f) * divmod(abs(seconds_f), 1)
+        seconds = int(seconds)
 
-        seconds_f = round(self.seconds + 60 * (minutes_f - minutes), 8)
-        seconds = int(seconds_f)
+        minutes_f = minutes + seconds_f / 60
+        minutes_f, minutes = _sign(minutes_f) * divmod(abs(minutes_f), 1)
+        minutes = int(minutes)
 
-        microseconds = round(self.microseconds + 1e6 * (seconds_f - seconds))
+        hours_f = hours + minutes_f / 60
+        hours_f, hours = _sign(hours_f) * divmod(abs(hours_f), 1)
+        hours = int(hours)
 
-        # Constructor carries overflow back up with call to _fix()
+        days_f = days + hours_f / 24
+        days_f, days = _sign(days_f) * divmod(abs(days_f), 1)
+        days = int(days)
+
+        # TODO: the rest of this should have some correspondence to the
+        #   "date arithmetic" page of the documentation.
         return self.__class__(years=self.years, months=self.months,
                               days=days, hours=hours, minutes=minutes,
                               seconds=seconds, microseconds=microseconds,
@@ -316,49 +368,38 @@ class relativedelta(object):
 
     def __add__(self, other):
         if isinstance(other, relativedelta):
-            return self.__class__(years=other.years + self.years,
-                                 months=other.months + self.months,
-                                 days=other.days + self.days,
-                                 hours=other.hours + self.hours,
-                                 minutes=other.minutes + self.minutes,
-                                 seconds=other.seconds + self.seconds,
-                                 microseconds=(other.microseconds +
-                                               self.microseconds),
-                                 leapdays=other.leapdays or self.leapdays,
-                                 year=(other.year if other.year is not None
-                                       else self.year),
-                                 month=(other.month if other.month is not None
-                                        else self.month),
-                                 day=(other.day if other.day is not None
-                                      else self.day),
-                                 weekday=(other.weekday if other.weekday is not None
-                                          else self.weekday),
-                                 hour=(other.hour if other.hour is not None
-                                       else self.hour),
-                                 minute=(other.minute if other.minute is not None
-                                         else self.minute),
-                                 second=(other.second if other.second is not None
-                                         else self.second),
-                                 microsecond=(other.microsecond if other.microsecond
-                                              is not None else
-                                              self.microsecond))
+            # Optimize relativedelta + relativedelta: minimize conditional expressions
+            result_attrs = {
+                'years': other.years + self.years,
+                'months': other.months + self.months,
+                'days': other.days + self.days,
+                'hours': other.hours + self.hours,
+                'minutes': other.minutes + self.minutes,
+                'seconds': other.seconds + self.seconds,
+                'microseconds': other.microseconds + self.microseconds,
+            }
+            
+            # Handle absolute attributes, preferring other over self
+            for attr in ('year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 'microsecond'):
+                other_val = getattr(other, attr)
+                if other_val is not None:
+                    result_attrs[attr] = other_val
+                else:
+                    self_val = getattr(self, attr)
+                    if self_val is not None:
+                        result_attrs[attr] = self_val
+                        
+            # Handle leapdays special case  
+            if other.leapdays or self.leapdays:
+                result_attrs['leapdays'] = other.leapdays or self.leapdays
+                
+            return self.__class__(**result_attrs)
         if isinstance(other, datetime.timedelta):
-            return self.__class__(years=self.years,
-                                  months=self.months,
-                                  days=self.days + other.days,
-                                  hours=self.hours,
-                                  minutes=self.minutes,
-                                  seconds=self.seconds + other.seconds,
-                                  microseconds=self.microseconds + other.microseconds,
-                                  leapdays=self.leapdays,
-                                  year=self.year,
-                                  month=self.month,
-                                  day=self.day,
-                                  weekday=self.weekday,
-                                  hour=self.hour,
-                                  minute=self.minute,
-                                  second=self.second,
-                                  microsecond=self.microsecond)
+            # Optimize relativedelta + timedelta: only update changed fields
+            return self._create_from_attrs(
+                days=self.days + other.days,
+                seconds=self.seconds + other.seconds,
+                microseconds=self.microseconds + other.microseconds)
         if not isinstance(other, datetime.date):
             return NotImplemented
         elif self._has_time and not isinstance(other, datetime.datetime):
@@ -410,85 +451,92 @@ class relativedelta(object):
     def __sub__(self, other):
         if not isinstance(other, relativedelta):
             return NotImplemented   # In case the other object defines __rsub__
-        return self.__class__(years=self.years - other.years,
-                             months=self.months - other.months,
-                             days=self.days - other.days,
-                             hours=self.hours - other.hours,
-                             minutes=self.minutes - other.minutes,
-                             seconds=self.seconds - other.seconds,
-                             microseconds=self.microseconds - other.microseconds,
-                             leapdays=self.leapdays or other.leapdays,
-                             year=(self.year if self.year is not None
-                                   else other.year),
-                             month=(self.month if self.month is not None else
-                                    other.month),
-                             day=(self.day if self.day is not None else
-                                  other.day),
-                             weekday=(self.weekday if self.weekday is not None else
-                                      other.weekday),
-                             hour=(self.hour if self.hour is not None else
-                                   other.hour),
-                             minute=(self.minute if self.minute is not None else
-                                     other.minute),
-                             second=(self.second if self.second is not None else
-                                     other.second),
-                             microsecond=(self.microsecond if self.microsecond
-                                          is not None else
-                                          other.microsecond))
+        
+        # Create a new relativedelta by setting changed attributes and using helper for defaults
+        result_attrs = {
+            'years': self.years - other.years,
+            'months': self.months - other.months,
+            'days': self.days - other.days,
+            'hours': self.hours - other.hours,
+            'minutes': self.minutes - other.minutes,
+            'seconds': self.seconds - other.seconds,
+            'microseconds': self.microseconds - other.microseconds,
+        }
+        
+        # Add non-None attributes, preferring self over other
+        for attr in ('year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 'microsecond'):
+            self_val = getattr(self, attr)
+            if self_val is not None:
+                result_attrs[attr] = self_val
+            else:
+                other_val = getattr(other, attr)
+                if other_val is not None:
+                    result_attrs[attr] = other_val
+                    
+        # Handle leapdays special case
+        if self.leapdays or other.leapdays:
+            result_attrs['leapdays'] = self.leapdays or other.leapdays
+            
+        return self.__class__(**result_attrs)
 
     def __abs__(self):
-        return self.__class__(years=abs(self.years),
-                              months=abs(self.months),
-                              days=abs(self.days),
-                              hours=abs(self.hours),
-                              minutes=abs(self.minutes),
-                              seconds=abs(self.seconds),
-                              microseconds=abs(self.microseconds),
-                              leapdays=self.leapdays,
-                              year=self.year,
-                              month=self.month,
-                              day=self.day,
-                              weekday=self.weekday,
-                              hour=self.hour,
-                              minute=self.minute,
-                              second=self.second,
-                              microsecond=self.microsecond)
+        return self._create_from_attrs(
+            years=abs(self.years),
+            months=abs(self.months),
+            days=abs(self.days),
+            hours=abs(self.hours),
+            minutes=abs(self.minutes),
+            seconds=abs(self.seconds),
+            microseconds=abs(self.microseconds))
 
     def __neg__(self):
-        return self.__class__(years=-self.years,
-                             months=-self.months,
-                             days=-self.days,
-                             hours=-self.hours,
-                             minutes=-self.minutes,
-                             seconds=-self.seconds,
-                             microseconds=-self.microseconds,
-                             leapdays=self.leapdays,
-                             year=self.year,
-                             month=self.month,
-                             day=self.day,
-                             weekday=self.weekday,
-                             hour=self.hour,
-                             minute=self.minute,
-                             second=self.second,
-                             microsecond=self.microsecond)
+        return self._create_from_attrs(
+            years=-self.years,
+            months=-self.months,
+            days=-self.days,
+            hours=-self.hours,
+            minutes=-self.minutes,
+            seconds=-self.seconds,
+            microseconds=-self.microseconds)
+
+    def _create_from_attrs(self, years=None, months=None, days=None, hours=None,
+                          minutes=None, seconds=None, microseconds=None,
+                          leapdays=None, year=None, month=None, day=None,
+                          weekday=None, hour=None, minute=None, second=None,
+                          microsecond=None, **kwargs):
+        """Optimized factory method to create relativedelta with explicit attributes."""
+        # Use existing values as defaults to reduce conditional expressions
+        return self.__class__(
+            years=years if years is not None else self.years,
+            months=months if months is not None else self.months,
+            days=days if days is not None else self.days,
+            hours=hours if hours is not None else self.hours,
+            minutes=minutes if minutes is not None else self.minutes,
+            seconds=seconds if seconds is not None else self.seconds,
+            microseconds=microseconds if microseconds is not None else self.microseconds,
+            leapdays=leapdays if leapdays is not None else self.leapdays,
+            year=year if year is not None else self.year,
+            month=month if month is not None else self.month,
+            day=day if day is not None else self.day,
+            weekday=weekday if weekday is not None else self.weekday,
+            hour=hour if hour is not None else self.hour,
+            minute=minute if minute is not None else self.minute,
+            second=second if second is not None else self.second,
+            microsecond=microsecond if microsecond is not None else self.microsecond,
+            **kwargs)
 
     def __bool__(self):
-        return not (not self.years and
-                    not self.months and
-                    not self.days and
-                    not self.hours and
-                    not self.minutes and
-                    not self.seconds and
-                    not self.microseconds and
-                    not self.leapdays and
-                    self.year is None and
-                    self.month is None and
-                    self.day is None and
-                    self.weekday is None and
-                    self.hour is None and
-                    self.minute is None and
-                    self.second is None and
-                    self.microsecond is None)
+        # Early return optimization: check non-zero numeric values first 
+        # since they're more common and faster to evaluate
+        if (self.years or self.months or self.days or self.hours or 
+            self.minutes or self.seconds or self.microseconds or self.leapdays):
+            return True
+            
+        # Then check absolute values (None checks are slower)
+        return (self.year is not None or self.month is not None or 
+                self.day is not None or self.weekday is not None or 
+                self.hour is not None or self.minute is not None or 
+                self.second is not None or self.microsecond is not None)
     # Compatibility with Python 2.x
     __nonzero__ = __bool__
 
@@ -498,22 +546,14 @@ class relativedelta(object):
         except TypeError:
             return NotImplemented
 
-        return self.__class__(years=int(self.years * f),
-                             months=int(self.months * f),
-                             days=int(self.days * f),
-                             hours=int(self.hours * f),
-                             minutes=int(self.minutes * f),
-                             seconds=int(self.seconds * f),
-                             microseconds=int(self.microseconds * f),
-                             leapdays=self.leapdays,
-                             year=self.year,
-                             month=self.month,
-                             day=self.day,
-                             weekday=self.weekday,
-                             hour=self.hour,
-                             minute=self.minute,
-                             second=self.second,
-                             microsecond=self.microsecond)
+        return self._create_from_attrs(
+            years=int(self.years * f),
+            months=int(self.months * f),
+            days=int(self.days * f),
+            hours=int(self.hours * f),
+            minutes=int(self.minutes * f),
+            seconds=int(self.seconds * f),
+            microseconds=int(self.microseconds * f))
 
     __rmul__ = __mul__
 
@@ -539,14 +579,41 @@ class relativedelta(object):
                 self.year == other.year and
                 self.month == other.month and
                 self.day == other.day and
+                self.weekday == other.weekday and
                 self.hour == other.hour and
                 self.minute == other.minute and
                 self.second == other.second and
                 self.microsecond == other.microsecond)
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __div__(self, other):
+        try:
+            reciprocal = 1 / float(other)
+        except (TypeError, ZeroDivisionError):
+            return NotImplemented
+        return self.__mul__(reciprocal)
+
+    __truediv__ = __div__
+
+    def __repr__(self):
+        l = []
+        for attr in ["years", "months", "days", "leapdays",
+                     "hours", "minutes", "seconds", "microseconds"]:
+            value = getattr(self, attr)
+            if value:
+                l.append("%s=%+d" % (attr, value))
+        for attr in ["year", "month", "day", "weekday",
+                     "hour", "minute", "second", "microsecond"]:
+            value = getattr(self, attr)
+            if value is not None:
+                l.append("%s=%s" % (attr, repr(value)))
+        return "%s(%s)" % (self.__class__.__name__, ", ".join(l))
+
     def __hash__(self):
         return hash((
-            self.weekday,
+            self.__class__,
             self.years,
             self.months,
             self.days,
@@ -558,42 +625,16 @@ class relativedelta(object):
             self.year,
             self.month,
             self.day,
+            self.weekday,
             self.hour,
             self.minute,
             self.second,
             self.microsecond,
         ))
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __div__(self, other):
-        try:
-            reciprocal = 1 / float(other)
-        except TypeError:
-            return NotImplemented
-
-        return self.__mul__(reciprocal)
-
-    __truediv__ = __div__
-
-    def __repr__(self):
-        l = []
-        for attr in ["years", "months", "days", "leapdays",
-                     "hours", "minutes", "seconds", "microseconds"]:
-            value = getattr(self, attr)
-            if value:
-                l.append("{attr}={value:+g}".format(attr=attr, value=value))
-        for attr in ["year", "month", "day", "weekday",
-                     "hour", "minute", "second", "microsecond"]:
-            value = getattr(self, attr)
-            if value is not None:
-                l.append("{attr}={value}".format(attr=attr, value=repr(value)))
-        return "{classname}({attrs})".format(classname=self.__class__.__name__,
-                                             attrs=", ".join(l))
-
 
 def _sign(x):
     return int(copysign(1, x))
+
 
 # vim:ts=4:sw=4:et
