@@ -15,7 +15,13 @@ runs:
         python -m pip install --upgrade pip
         pip install -r requirements-dev.txt
         pip install tox
-        
+    - name: Install deps & build zoneinfo
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y tzdata git make build-essential
+        ./ci_tools/run_tz_master_env.sh /tmp "$GITHUB_WORKSPACE"
+
     - name: Install package
       shell: bash  
       run: |
