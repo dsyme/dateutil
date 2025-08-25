@@ -16,3 +16,5 @@ RELEASING text
 # NEWS and Windows batch files should be crlf
 NEWS eol=crlf
 *.bat eol=crlf
+
+.github/workflows/*.lock.yml linguist-generated=true merge=ours
