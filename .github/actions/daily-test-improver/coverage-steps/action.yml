@@ -21,8 +21,10 @@ runs:
         
     - name: Run tox
       run: python -m tox
+      shell: bash
     - name: Generate coverage.xml
       run: python -m tox -e coverage
+      shell: bash
         
     - name: Generate detailed coverage report
       shell: bash
