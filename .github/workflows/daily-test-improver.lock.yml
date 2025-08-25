@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-08-27 22:41:27
+# Effective stop-time: 2025-08-27 23:09:42
 
 name: "Daily Test Coverage Improver"
 on:
@@ -97,7 +97,7 @@ jobs:
           WORKFLOW_NAME="Daily Test Coverage Improver"
           
           # Check stop-time limit
-          STOP_TIME="2025-08-27 22:41:27"
+          STOP_TIME="2025-08-27 23:09:42"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
@@ -139,7 +139,11 @@ jobs:
           
              1c. Create the file `.github/actions/daily-test-improver/coverage-steps/action.yml` containing these steps, ensuring that the action.yml file is valid.
           
-             1d. Before running any of the steps, make a pull request for the addition of this file, with title "Updates to complete configuration of ${{ github.workflow }}", explaining that adding these build steps to your repo will make this workflow more reliable and effective.  Use `push_files` to push the changes, then use `create_pull_request` to create the pull request.
+             1d. Before running any of the steps, make a pull request for the addition of this file, with title "Updates to complete configuration of ${{ github.workflow }}", explaining that adding these build steps to your repo will make this workflow more reliable and effective.
+          
+              - Use Bash `git add ...`, `git commit ...`, `git push ...` etc. to push the changes to your branch.
+          
+              - Use Bash `gh pr create --repo ${{ github.repository }} ...` to create a pull request with the changes.
              
              1e. Try to run through the steps you worked out manually one by one. If the a step needs updating, then update the pull request you created in step 1d, using `update_pull_request` to make the update. Continue through all the steps. If you can't get it to work, then create an issue describing the problem and exit the entire workflow.
              
@@ -153,7 +157,7 @@ jobs:
              
              2c. Check the most recent pull request with title starting with "${{ github.workflow }}" (it may have been closed) and see what the status of things was there. These are your notes from last time you did your work, and may include useful recommendations for future areas to work on.
           
-             2d. Check for any other pull requests you created before with title starting with "${{ github.workflow }}. Don't work on adding any tests that overlap with what was done there.
+             2d. Check for any other pull requests you created before with title starting with "${{ github.workflow }}". Don't work on adding any tests that overlap with what was done there.
           
              2e. Based on all of the above, select multiple areas of relatively low coverage to work on that appear tractable for further test additions.
           
@@ -169,11 +173,15 @@ jobs:
           
              3e. Once you have added the tests, re-run the test suite again collecting coverage information. Check that overall coverage has improved. If coverage has not improved then exit.
           
-             3f. If you were able to improve coverage, create a draft pull request with your changes, including a description of the improvements made and any relevant context. Use `push_files` to push the changes, then use `create_pull_request` to create the pull request.
+             3f. Apply any automatic code formatting used in the repo
+             
+             3g. Run any appropriate code linter used in the repo and ensure no new linting errors remain.
+          
+             3h. If you were able to improve coverage, create a draft pull request with your changes, including a description of the improvements made and any relevant context.
           
               - Use Bash `git add ...`, `git commit ...`, `git push ...` etc. to push the changes to your branch.
           
-              - Use Bash `gh pr create --repo ${{ github.repository }}` to create a pull request with the changes.
+              - Use Bash `gh pr create --repo ${{ github.repository }} ...` to create a pull request with the changes.
           
               - Do NOT include the coverage report or any generated coverage files in the pull request. Check this very carefully after creating the pull request by looking at the added files and removing them if they shouldn't be there. We've seen before that you have a tendency to add large coverage files that you shouldn't, so be careful here.
           
@@ -191,9 +199,9 @@ jobs:
                   - all web searches you performed
                   - all web pages you fetched 
           
-             If you were unable to improve coverage in a particular area, create an issue explaining why and what you tried. If you have any relevant links or resources, include those as well.
+              - After creation, check the pull request to ensure it is correct, includes all expected files, and doesn't include any unwanted files or changes. Make any necessary corrections by pushing further commits to the branch.
           
-          4. If you think you found bugs in the code while adding tests, create one single combined issue for all of them. Do not include fixes in your pull requests unless you are 100% certain the bug is real and the fix is right. Ideally you will also add a test case and prove the test case passes. If you find existing issues that are relevant, add comments to them instead of creating new issues.
+          4. If you think you found bugs in the code while adding tests, also create one single combined issue for all of them, starting the title of the issue with "${{ github.workflow }}". Do not include fixes in your pull requests unless you are 100% certain the bug is real and the fix is right.
           
           5. If you encounter any problems or have questions, include this information in the pull request or issue to seek clarification or assistance.
           
@@ -335,7 +343,6 @@ jobs:
           # - mcp__github__create_branch
           # - mcp__github__create_issue
           # - mcp__github__create_or_update_file
-          # - mcp__github__create_pull_request
           # - mcp__github__delete_file
           # - mcp__github__download_workflow_run_artifact
           # - mcp__github__get_code_scanning_alert
@@ -384,7 +391,7 @@ jobs:
           # - mcp__github__search_users
           # - mcp__github__update_issue
           # - mcp__github__update_pull_request
-          allowed_tools: "Bash,Edit,Glob,Grep,LS,MultiEdit,NotebookEdit,NotebookRead,Read,Task,WebFetch,WebSearch,Write,mcp__github__add_issue_comment,mcp__github__create_branch,mcp__github__create_issue,mcp__github__create_or_update_file,mcp__github__create_pull_request,mcp__github__delete_file,mcp__github__download_workflow_run_artifact,mcp__github__get_code_scanning_alert,mcp__github__get_commit,mcp__github__get_dependabot_alert,mcp__github__get_discussion,mcp__github__get_discussion_comments,mcp__github__get_file_contents,mcp__github__get_issue,mcp__github__get_issue_comments,mcp__github__get_job_logs,mcp__github__get_me,mcp__github__get_notification_details,mcp__github__get_pull_request,mcp__github__get_pull_request_comments,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_files,mcp__github__get_pull_request_reviews,mcp__github__get_pull_request_status,mcp__github__get_secret_scanning_alert,mcp__github__get_tag,mcp__github__get_workflow_run,mcp__github__get_workflow_run_logs,mcp__github__get_workflow_run_usage,mcp__github__list_branches,mcp__github__list_code_scanning_alerts,mcp__github__list_commits,mcp__github__list_dependabot_alerts,mcp__github__list_discussion_categories,mcp__github__list_discussions,mcp__github__list_issues,mcp__github__list_notifications,mcp__github__list_pull_requests,mcp__github__list_secret_scanning_alerts,mcp__github__list_tags,mcp__github__list_workflow_jobs,mcp__github__list_workflow_run_artifacts,mcp__github__list_workflow_runs,mcp__github__list_workflows,mcp__github__push_files,mcp__github__search_code,mcp__github__search_issues,mcp__github__search_orgs,mcp__github__search_pull_requests,mcp__github__search_repositories,mcp__github__search_users,mcp__github__update_issue,mcp__github__update_pull_request"
+          allowed_tools: "Bash,Edit,Glob,Grep,LS,MultiEdit,NotebookEdit,NotebookRead,Read,Task,WebFetch,WebSearch,Write,mcp__github__add_issue_comment,mcp__github__create_branch,mcp__github__create_issue,mcp__github__create_or_update_file,mcp__github__delete_file,mcp__github__download_workflow_run_artifact,mcp__github__get_code_scanning_alert,mcp__github__get_commit,mcp__github__get_dependabot_alert,mcp__github__get_discussion,mcp__github__get_discussion_comments,mcp__github__get_file_contents,mcp__github__get_issue,mcp__github__get_issue_comments,mcp__github__get_job_logs,mcp__github__get_me,mcp__github__get_notification_details,mcp__github__get_pull_request,mcp__github__get_pull_request_comments,mcp__github__get_pull_request_diff,mcp__github__get_pull_request_files,mcp__github__get_pull_request_reviews,mcp__github__get_pull_request_status,mcp__github__get_secret_scanning_alert,mcp__github__get_tag,mcp__github__get_workflow_run,mcp__github__get_workflow_run_logs,mcp__github__get_workflow_run_usage,mcp__github__list_branches,mcp__github__list_code_scanning_alerts,mcp__github__list_commits,mcp__github__list_dependabot_alerts,mcp__github__list_discussion_categories,mcp__github__list_discussions,mcp__github__list_issues,mcp__github__list_notifications,mcp__github__list_pull_requests,mcp__github__list_secret_scanning_alerts,mcp__github__list_tags,mcp__github__list_workflow_jobs,mcp__github__list_workflow_run_artifacts,mcp__github__list_workflow_runs,mcp__github__list_workflows,mcp__github__push_files,mcp__github__search_code,mcp__github__search_issues,mcp__github__search_orgs,mcp__github__search_pull_requests,mcp__github__search_repositories,mcp__github__search_users,mcp__github__update_issue,mcp__github__update_pull_request"
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_env: |
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
