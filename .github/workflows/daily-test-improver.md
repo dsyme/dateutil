@@ -42,6 +42,9 @@ tools:
       # Configure bash build commands here, or enabled the agentics/shared/build-tools.md file at the end of this file and edit there
       Bash: [":*"]
 
+env:
+  pypi-hosts: "pypi.python.org pypi.org files.pythonhosted.org"
+
 steps:
   - name: Checkout repository
     uses: actions/checkout@v3

@@ -2,7 +2,7 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-08-27 17:15:25
+# Effective stop-time: 2025-08-27 18:03:18
 
 name: "Daily Test Coverage Improver"
 on:
@@ -16,6 +16,9 @@ concurrency:
   group: "gh-aw-${{ github.workflow }}"
 
 run-name: "Daily Test Coverage Improver"
+
+env:
+  pypi-hosts: pypi.python.org pypi.org files.pythonhosted.org
 
 jobs:
   daily-test-coverage-improver:
@@ -97,7 +100,7 @@ jobs:
           WORKFLOW_NAME="Daily Test Coverage Improver"
           
           # Check stop-time limit
-          STOP_TIME="2025-08-27 17:15:25"
+          STOP_TIME="2025-08-27 18:03:18"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
