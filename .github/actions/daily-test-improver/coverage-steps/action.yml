@@ -15,22 +15,14 @@ runs:
         python -m pip install --upgrade pip
         pip install -r requirements-dev.txt
         pip install tox
-    - name: Install deps & build zoneinfo
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y tzdata git make build-essential
-        ./ci_tools/run_tz_master_env.sh /tmp "$GITHUB_WORKSPACE"
-
-    - name: Install package
-      shell: bash  
-      run: |
-        pip install -e .
+    - name: Run updatezinfo.py (Unix)
+      run: ./ci_tools/retry.sh python updatezinfo.py
+      if: runner.os != 'Windows'
         
-    - name: Run tests with coverage
-      shell: bash
-      run: |
-        python -m pytest tests/ --cov=dateutil --cov-report=xml --cov-report=html --cov-report=term-missing
+    - name: Run tox
+      run: python -m tox
+    - name: Generate coverage.xml
+      run: python -m tox -e coverage
         
     - name: Generate detailed coverage report
       shell: bash
