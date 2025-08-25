@@ -50,12 +50,12 @@ from .. import relativedelta
 from .. import tz
 
 
-# TODO: pandas.tslib imports this explicitly.  This module
-# is deprecated in pandas 0.19, so this import and the related
-# test can be removed when support for pandas 0.18 is dropped.
 __all__ = ["parse", "parserinfo", "ParserError"]
 
 
+# TODO: pandas.tslib imports this explicitly.  This module
+# is deprecated in pandas 0.19, so this import and the related
+# test can be removed when support for pandas 0.18 is dropped.
 class _timelex(object):
     # Fractional seconds are sometimes split by a comma
     _split_decimal = re.compile("([.,])")
@@ -176,7 +176,7 @@ class _timelex(object):
         token = ''.join(token_chars)
 
         if (state in ('a.', '0.') and (seenletters or token.count('.') > 1 or
-                                       token[-1] in '.,'))):
+                                       token[-1] in '.,')):
             l = self._split_decimal.split(token)
             token = l[0]
             for tok in l[1:]:
