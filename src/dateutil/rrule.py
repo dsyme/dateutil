@@ -855,8 +855,26 @@ class rrule(rrulebase):
                     else:
                         daypos, timepos = divmod(pos-1, len(timeset))
                     try:
-                        i = [x for x in dayset[start:end]
-                             if x is not None][daypos]
+                        # Optimized: avoid creating full intermediate list for bysetpos
+                        if daypos >= 0:
+                            # Positive index: iterate from start and stop at target
+                            filtered_count = 0
+                            i = None
+                            for x in dayset[start:end]:
+                                if x is not None:
+                                    if filtered_count == daypos:
+                                        i = x
+                                        break
+                                    filtered_count += 1
+                            if i is None:
+                                raise IndexError
+                        else:
+                            # Negative index: need to collect all items first
+                            filtered_items = []
+                            for x in dayset[start:end]:
+                                if x is not None:
+                                    filtered_items.append(x)
+                            i = filtered_items[daypos]
                         time = timeset[timepos]
                     except IndexError:
                         pass
