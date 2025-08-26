@@ -35,6 +35,7 @@ import re
 import string
 import time
 import warnings
+from collections import deque
 
 from calendar import monthrange
 from io import StringIO
@@ -70,8 +71,8 @@ class _timelex(object):
                             '{itype}'.format(itype=instream.__class__.__name__))
 
         self.instream = instream
-        self.charstack = []
-        self.tokenstack = []
+        self.charstack = deque()
+        self.tokenstack = deque()
         self.eof = False
 
     def get_token(self):
@@ -89,7 +90,7 @@ class _timelex(object):
         demands that multiple tokens be parsed at once.
         """
         if self.tokenstack:
-            return self.tokenstack.pop(0)
+            return self.tokenstack.popleft()
 
         seenletters = False
         token = None
@@ -101,7 +102,7 @@ class _timelex(object):
             # that character may be part of the next token, it's stored in the
             # charstack.
             if self.charstack:
-                nextchar = self.charstack.pop(0)
+                nextchar = self.charstack.popleft()
             else:
                 nextchar = self.instream.read(1)
                 while nextchar == '\x00':
