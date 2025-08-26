@@ -1369,6 +1369,9 @@ def parse(timestr, parserinfo=None, **kwargs):
 
 
 class _tzparser(object):
+    # Pre-compiled regex pattern for timezone string parsing
+    # This pattern splits timezone strings like "EST5EDT" into components
+    _TZ_SPLIT_PATTERN = re.compile(r'([,:.]|[a-zA-Z]+|[0-9]+)')
 
     class _result(_resultbase):
 
@@ -1389,7 +1392,7 @@ class _tzparser(object):
 
     def parse(self, tzstr):
         res = self._result()
-        l = [x for x in re.split(r'([,:.]|[a-zA-Z]+|[0-9]+)',tzstr) if x]
+        l = [x for x in self._TZ_SPLIT_PATTERN.split(tzstr) if x]
         used_idxs = list()
         try:
 
