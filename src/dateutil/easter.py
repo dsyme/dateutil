@@ -64,22 +64,29 @@ def easter(year, method=EASTER_WESTERN):
 
     y = year
     g = y % 19
+    y_div_4 = y // 4  # Cache y//4 since it's used multiple times
     e = 0
     if method < 3:
         # Old method
         i = (19*g + 15) % 30
-        j = (y + y//4 + i) % 7
+        j = (y + y_div_4 + i) % 7
         if method == 2:
             # Extra dates to convert Julian to Gregorian date
             e = 10
             if y > 1600:
-                e = e + y//100 - 16 - (y//100 - 16)//4
+                # Optimize repeated calculation of y//100 and (y//100 - 16)
+                c = y // 100
+                c_minus_16 = c - 16
+                e = e + c_minus_16 - c_minus_16 // 4
     else:
         # New method
-        c = y//100
-        h = (c - c//4 - (8*c + 13)//25 + 19*g + 15) % 30
+        c = y // 100
+        # Optimize: pre-calculate repeated subexpressions
+        c_div_4 = c // 4
+        eight_c_plus_13 = 8 * c + 13
+        h = (c - c_div_4 - eight_c_plus_13 // 25 + 19*g + 15) % 30
         i = h - (h//28)*(1 - (h//28)*(29//(h + 1))*((21 - g)//11))
-        j = (y + y//4 + i + 2 - c + c//4) % 7
+        j = (y + y_div_4 + i + 2 - c + c_div_4) % 7
 
     # p can be from -6 to 56 corresponding to dates 22 March to 23 May
     # (later dates apply to method 2, although 23 May never actually occurs)
